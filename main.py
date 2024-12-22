@@ -1,8 +1,9 @@
+from docx.enum.style import WD_STYLE_TYPE
 import docx
 from docx import Document
 from styles import Styles
 from text import Decider
-from text import BulletListText
+from styles import create_main, create_header1
 
 old_document = Document("c.docx")
 new_document = Document("empty.docx")
@@ -10,7 +11,7 @@ new_document.save('output/new_c.docx')
 new_document = Document("output/new_c.docx")
 new_document.save('output/new_c.docx')
 
-
+styles = Styles(old_document)
 docx_iter = old_document.iter_inner_content()
 # s = set()
 # for i in range(6):
@@ -18,19 +19,15 @@ docx_iter = old_document.iter_inner_content()
 # exit()
 
 bullet_buffer = []
+r_style = create_header1(old_document)
 for p in docx_iter:
-    p_obj = Decider.get_style(p)
-    if p_obj == 0:
-        continue
-    if isinstance(p_obj, BulletListText):
-        bullet_buffer.append(p_obj)
-    else:
-        if bullet_buffer:
-            BulletListText.compile_list(bullet_buffer, new_document)
-            bullet_buffer = []
-        p_obj.add_paragraph(new_document)
+   r_style = Decider.get_style(p, styles)
+
+   if not r_style:
+      continue
+   p.style = r_style
 
 
 
-
+old_document.save('output/new_old_c.docx')
 new_document.save('output/new_c.docx')
