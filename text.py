@@ -2,13 +2,14 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
 from docx.document import Document
 from styles import Styles
-from docx.text.paragraph import Paragraph
+from docx.text.paragraph import Paragraph, ParagraphStyle
 from string import punctuation
-from docx.shared import Mm
+from docx.shared import Mm, RGBColor
+import regex
+print("не забыть про ссылки в конце списка")
+
 
 class Decider:
-    list_dict = {}
-    list_i = 0
     @staticmethod
     def get_style(p: Paragraph, style: Styles):
         if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
@@ -16,20 +17,20 @@ class Decider:
                 if "bullet" in p.style.name.lower() or "марк" in p.style.name.lower():
                     return style.list_bullet
                 else:
-                    # n = int(list(filter(lambda x: x.isnumeric(), p.style.name))[0])
                     return style.get_numlist_style(p)
-            if p.style.base_style is None:
-                print(p.text, p.style.name)
-                return 0
+
 
             if "рисунок" in p.text.lower():
                 return style.pictures
 
-            if p.style.base_style.name == "Heading 1":
-                return style.header1
-            elif p.style.base_style.name == "Heading 2":
-                return style.header2
+            if p.style.base_style:
+                if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
+                    return style.header1
+                elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
+                    return style.header2
 
+            if "часть" in p.text.lower() and len(p.text.split()) <= 3:
+                return style.source_header
 
             return style.main
 
@@ -37,125 +38,133 @@ class Decider:
             return 0
 
     @staticmethod
-    def get_num_list(p: Paragraph, style: Styles):
-        if Decider.list_i >= 4: Decider.list_i = 3
-        if p.style.name not in Decider.list_dict:
-            Decider.list_dict[p.style.name] = style.lists_nums[Decider.list_i]
-            Decider.list_i += 1
-
-        return Decider.list_dict[p.style.name]
-
+    def normalizer(p: Paragraph):
+        if not p.runs:
+            return
+        p.style.font.color.rgb = RGBColor(0, 0, 0)
+        pf = p.paragraph_format
+        spf = p.style.paragraph_format
 
 
-#
-# class ParagraphText:
-#     def __init__(self, text: str):
-#         self.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-#         self.text = text
-#         self.first_line_indent = Mm(12.5)
-#         self.style = Styles.main
-#         self.list = False
-#
-#     def add_paragraph(self, file: Document) -> Paragraph:
-#         self.handle_text()
-#         par = file.add_paragraph(text=self.text, style=self.style)
-#         # par.paragraph_format.first_line_indent = Mm(12.5)
-#         return par
-#
-#
-#     def replace_bad_symbols(self):
-#         self.text = self.text.replace("«", '"')
-#         self.text = self.text.replace("»", '"')
-#         self.text = self.text.replace("“", '"')
-#         self.text = self.text.replace("”", '"')
-#
-#         self.text = self.text.replace(" - ", ' — ')
-#
-#         self.text = self.text.replace("  ", " ") # 2 spaces
-#         self.text = self.text.replace(".[", ". [")  #
-#
-#     def handle_text(self):
-#         self.replace_bad_symbols()
-#
-#     def get_text(self):
-#         print("!!!ParagraphText!!!")
-#         return self.text
-#
-#
-# class HeaderBigText(ParagraphText):
-#     def __init__(self, text: str):
-#         super().__init__(text)
-#         self.style = Styles.header1
-#
-#
-# class HeaderSmallText(ParagraphText):
-#     def __init__(self, text: str):
-#         super().__init__(text)
-#         self.style = Styles.header2
-#
-#
-#
-#
-#
-# class ListText(ParagraphText):
-#     def __init__(self, text: str):
-#         super().__init__(text)
-#         self.list = True
-#
-#     def add_paragraph(self, file: Document) -> Paragraph:
-#         self.handle_text()
-#         par = file.add_paragraph(text=self.text, style=self.style)
-#         par.paragraph_format.first_line_indent = Mm(-10)
-#         par.paragraph_format.left_indent = Mm(22.5)
-#         return par
-#
-#
-# class BulletListText(ListText):
-#     def __init__(self, text: str):
-#         super().__init__(text)
-#         self.style = Styles.list_bullet
-#         self.is_last = False
-#         self.is_lower = False
-#
-#     def correct_end(self):
-#         if self.is_lower:
-#             self.text = self.text[0].lower() + self.text[1:]
-#         else:
-#             self.text = self.text[0].upper() + self.text[1:]
-#
-#         if self.text[-1] in punctuation:
-#             self.text = self.text[:-1] + (";" if self.is_lower and not self.is_last else ".")
-#         else:
-#             self.text = self.text + (";" if self.is_lower and not self.is_last else ".")
-#
-#     def handle_text(self):
-#         self.correct_end()
-#         self.replace_bad_symbols()
-#
-#     @staticmethod
-#     def compile_list(l: list["BulletListText"], d: Document):
-#         is_lower = l[0].text[0].islower()
-#         l[-1].is_last = True
-#         for p in l:
-#             p.is_lower = is_lower
-#             p.add_paragraph(d)
-#
-#
-#
-#
-# class NumsListText(ListText):
-#     def __init__(self, text=""):
-#         super().__init__(text)
-#         self.style = Styles.list_num
-#
-#
-# class MainText(ParagraphText):
-#     def __init__(self, text=""):
-#         super().__init__(text)
-#         self.text = text
-#         self.style = Styles.main
-#         self.list = False
-#
-#
-#     def is_P_too_long(self, p: str) -> bool:
-#         p.count()
+        if pf.left_indent != spf.left_indent:
+            pf.left_indent = spf.left_indent
+        if pf.alignment != spf.alignment:
+            pf.alignment = spf.alignment
+        if pf.first_line_indent != spf.first_line_indent:
+            if not p.text.lower().startswith("где"):
+                pf.first_line_indent = spf.first_line_indent
+        if pf.line_spacing_rule != spf.line_spacing_rule:
+            pf.line_spacing_rule = spf.line_spacing_rule
+
+        if p.text.lower().startswith("где") and "—" in p.text:
+            pf.first_line_indent = Mm(0)
+
+
+
+
+
+        # if pf.left_indent and pf.left_indent != spf.left_indent:
+        #     pf.left_indent = spf.left_indent
+        # if pf.left_indent and pf.left_indent != spf.left_indent:
+        #     pf.left_indent = spf.left_indent
+        # if pf.left_indent and pf.left_indent != spf.left_indent:
+        #     pf.left_indent = spf.left_indent
+        # if pf.left_indent and pf.left_indent != spf.left_indent:
+        #     pf.left_indent = spf.left_indent
+
+class ParagraphText:
+    @staticmethod
+    def handle_text(text: str) -> str:
+        text = ParagraphText.replace_bad_symbols(text)
+        text = ParagraphText.handle_quotes(text)
+        text = ParagraphText.replace_bad_spaces(text)
+        return text
+
+    @staticmethod
+    def replace_bad_symbols(text: str) -> str:
+        # text = text.replace("«", '"').replace("»", '"')
+        text = text.replace("“", '"').replace("”", '"')
+
+        text = text.replace(" - ", ' — ')
+        # «–» минус
+        return text
+
+    @staticmethod
+    def handle_quotes(text: str) -> str:
+        if "«" in text and "»" in text:
+            mask = r'«.*?»'
+            quotes = regex.findall(mask, text)
+            for q in quotes:
+                for ch in q[1:-1]:
+                    if ord(ch) < 700:
+                        text = text.replace(q, q.replace("«", '"').replace("»", '"'))
+                        break
+        if '"' in text:
+            mask = r'".*?"'
+            quotes = regex.findall(mask, text)
+            for q in quotes:
+                for ch in q[1:-1]:
+                    if ord(ch) > 700:
+                        text = text.replace(q, f"«{q[1:-1]}»")
+                        break
+        return text
+
+
+    @staticmethod
+    def replace_bad_spaces(text: str) -> str:
+        text = text.replace("  ", " ") # 2 spaces
+        text = text.replace(".[", ". [") #
+        text = text.replace("( ", "(").replace(" )", ")")
+
+        text = text.replace(" .", ".").replace(" ,", ",").replace(" :", ":")
+        text = text.replace('« ', '«').replace(' »', "»")
+
+        return text
+
+
+class BulletListText(ParagraphText):
+    @staticmethod
+    def handle_text(text: str, last=False) -> str:
+        text = super().handle_text(text)
+        text = BulletListText.handle_list(text, last)
+        return text
+
+    @staticmethod
+    def handle_list(text: str, last: bool) -> str:
+        text = text[0].lower() + text[1:] # Текст в маркированном списке начинается с маленькой (строчной) буквы
+        if text[-1] == "]":
+            return text
+        if last:
+            if text[-1] in punctuation:
+                text = text[:-1] + "."
+            else:
+                text = text + "."
+        else:
+            if text[-1] in punctuation:
+                text = text[:-1] + ";"
+            else:
+                text = text + ";"
+        return text
+
+class NumListText(BulletListText):
+    @staticmethod
+    def handle_list(text: str, last) -> str:
+        text = text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
+        if text[-1] == "]":
+            return text
+        if text[-1] in punctuation:
+            text = text[:-1] + "."
+        else:
+            text = text + "."
+
+class PictureText(ParagraphText):
+    @staticmethod
+    def handle_text(text: str) -> str:
+        text = super().handle_text(text)
+        return text
+
+    @staticmethod
+    def handle_picture(text: str) -> str:
+        text = text.replace("рисунок", "Рисунок")
+        if "-" in text and "—" not in text:
+            text = text.replace("-",  "—", 1)

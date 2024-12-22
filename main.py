@@ -1,33 +1,26 @@
-from docx.enum.style import WD_STYLE_TYPE
-import docx
 from docx import Document
+from docx.enum.style import WD_STYLE_TYPE
+from docx.enum.text import WD_COLOR_INDEX, WD_COLOR
 from styles import Styles
 from text import Decider
-from styles import create_main, create_header1
-
-old_document = Document("c.docx")
-new_document = Document("empty.docx")
-new_document.save('output/new_c.docx')
-new_document = Document("output/new_c.docx")
-new_document.save('output/new_c.docx')
+from docx.shared import Mm, RGBColor
+old_document = Document("input/work_c.docx")
 
 styles = Styles(old_document)
 docx_iter = old_document.iter_inner_content()
-# s = set()
-# for i in range(6):
-#     print(next(docx_iter).text)
-# exit()
 
-bullet_buffer = []
-r_style = create_header1(old_document)
 for p in docx_iter:
    r_style = Decider.get_style(p, styles)
-
    if not r_style:
       continue
-   p.style = r_style
+   if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
+      p.style = r_style
+      Decider.normalizer(p)
+
+      if p.paragraph_format.left_indent != p.style.paragraph_format.left_indent and p.paragraph_format.left_indent and p.runs:
+         p.paragraph_format.left_indent = p.style.paragraph_format.left_indent
+         p.runs[0].font.highlight_color = WD_COLOR_INDEX.RED
 
 
+old_document.save("output/work_c.docx")
 
-old_document.save('output/new_old_c.docx')
-new_document.save('output/new_c.docx')
