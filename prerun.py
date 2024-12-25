@@ -1,7 +1,7 @@
 from docx import Document
 from styles import Styles
 
-old_document = Document("c1.docx")
+old_document = Document("c2.docx")
 
 
 styles = Styles(old_document)

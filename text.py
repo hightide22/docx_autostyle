@@ -1,96 +1,55 @@
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.style import WD_STYLE_TYPE
 from docx.document import Document
-from styles import Styles
+from styles import Styles, Decider
 from docx.text.paragraph import Paragraph, ParagraphStyle
 from string import punctuation
 from docx.shared import Mm, RGBColor
 import regex
-print("не забыть про ссылки в конце списка")
-
-
-class Decider:
-    @staticmethod
-    def get_style(p: Paragraph, style: Styles):
-        if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
-            if "список" in p.style.name.lower() or "list" in p.style.name.lower():
-                if "bullet" in p.style.name.lower() or "марк" in p.style.name.lower():
-                    return style.list_bullet
-                else:
-                    return style.get_numlist_style(p)
-
-
-            if "рисунок" in p.text.lower():
-                return style.pictures
-
-            if p.style.base_style:
-                if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
-                    return style.header1
-                elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
-                    return style.header2
-
-            if "часть" in p.text.lower() and len(p.text.split()) <= 3:
-                return style.source_header
-
-            return style.main
-
-        else:
-            return 0
-
-    @staticmethod
-    def normalizer(p: Paragraph):
-        if not p.runs:
-            return
-        p.style.font.color.rgb = RGBColor(0, 0, 0)
-        pf = p.paragraph_format
-        spf = p.style.paragraph_format
-
-
-        if pf.left_indent != spf.left_indent:
-            pf.left_indent = spf.left_indent
-        if pf.alignment != spf.alignment:
-            pf.alignment = spf.alignment
-        if pf.first_line_indent != spf.first_line_indent:
-            if not p.text.lower().startswith("где"):
-                pf.first_line_indent = spf.first_line_indent
-        if pf.line_spacing_rule != spf.line_spacing_rule:
-            pf.line_spacing_rule = spf.line_spacing_rule
-
-        if p.text.lower().startswith("где") and "—" in p.text:
-            pf.first_line_indent = Mm(0)
 
 
 
 
-
-        # if pf.left_indent and pf.left_indent != spf.left_indent:
-        #     pf.left_indent = spf.left_indent
-        # if pf.left_indent and pf.left_indent != spf.left_indent:
-        #     pf.left_indent = spf.left_indent
-        # if pf.left_indent and pf.left_indent != spf.left_indent:
-        #     pf.left_indent = spf.left_indent
-        # if pf.left_indent and pf.left_indent != spf.left_indent:
-        #     pf.left_indent = spf.left_indent
 
 class ParagraphText:
     @staticmethod
-    def handle_text(text: str) -> str:
-        text = ParagraphText.replace_bad_symbols(text)
-        text = ParagraphText.handle_quotes(text)
-        text = ParagraphText.replace_bad_spaces(text)
+    def handle_text(p: Paragraph):
+        for run in p.runs:
+            if len(run.text) > 1:
+                run.text = ParagraphText._handle_text(run.text)
+        while p.runs and p.runs[-1].text.endswith(" "):
+            p.runs[-1].text = p.runs[-1].text[:-1]
+        ParagraphText._handle_eq(p)
+
+    @staticmethod
+    def _handle_eq(p: Paragraph):
+        if "[eq]" in p.text or u"\u200b" in p.text:
+            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            for r in p.runs:
+                if r.text in ("[", "eq", "]", "[eq]"):
+                    r.text = u"\u200b"
+                r.text = r.text.replace("[eq]", u"\u200b")
+
+    @staticmethod
+    def _handle_text(text: str) -> str:
+        text = ParagraphText._replace_bad_symbols(text)
+        # text = ParagraphText._handle_quotes(text) # Не работает с run
+        text = ParagraphText._replace_bad_spaces(text)
         return text
 
     @staticmethod
-    def replace_bad_symbols(text: str) -> str:
+    def _replace_bad_symbols(text: str) -> str:
         # text = text.replace("«", '"').replace("»", '"')
         text = text.replace("“", '"').replace("”", '"')
 
         text = text.replace(" - ", ' — ')
         # «–» минус
+
+        text = text.replace(u"\u00A0", " ") # non-breaking spaces
         return text
 
     @staticmethod
-    def handle_quotes(text: str) -> str:
+    def _handle_quotes(text: str) -> str:
         if "«" in text and "»" in text:
             mask = r'«.*?»'
             quotes = regex.findall(mask, text)
@@ -111,27 +70,38 @@ class ParagraphText:
 
 
     @staticmethod
-    def replace_bad_spaces(text: str) -> str:
+    def _replace_bad_spaces(text: str) -> str:
         text = text.replace("  ", " ") # 2 spaces
         text = text.replace(".[", ". [") #
         text = text.replace("( ", "(").replace(" )", ")")
 
         text = text.replace(" .", ".").replace(" ,", ",").replace(" :", ":")
         text = text.replace('« ', '«').replace(' »', "»")
-
         return text
-
 
 class BulletListText(ParagraphText):
     @staticmethod
-    def handle_text(text: str, last=False) -> str:
-        text = super().handle_text(text)
-        text = BulletListText.handle_list(text, last)
+    def handle_text(p: Paragraph, last=False):
+        ParagraphText.handle_text(p)
+        if p.runs:
+            if p.runs[0].text:
+                p.runs[0].text = BulletListText._capitalize(p.runs[0].text)
+            if p.runs[-1].text:
+                p.runs[-1].text = BulletListText._handle_list(p.runs[-1].text, last)
+
+    @staticmethod
+    def _handle_text(text: str, last=False) -> str:
+        text = BulletListText._handle_list(text, last)
         return text
 
     @staticmethod
-    def handle_list(text: str, last: bool) -> str:
-        text = text[0].lower() + text[1:] # Текст в маркированном списке начинается с маленькой (строчной) буквы
+    def _capitalize(text: str) -> str:
+        text = text[0].lower() + text[1:]  # Текст в маркированном списке начинается с маленькой (строчной) буквы
+        return text
+    @staticmethod
+    def _handle_list(text: str, last: bool) -> str:
+        if not text:
+            return text
         if text[-1] == "]":
             return text
         if last:
@@ -148,23 +118,139 @@ class BulletListText(ParagraphText):
 
 class NumListText(BulletListText):
     @staticmethod
-    def handle_list(text: str, last) -> str:
-        text = text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
+    def handle_text(p: Paragraph, last=False):
+        BulletListText.handle_text(p, last)
+        if p.runs:
+            if p.runs[0].text:
+                p.runs[0].text = NumListText._capitalize(p.runs[0].text)
+            if p.runs[-1].text:
+                p.runs[-1].text = NumListText._handle_list(p.runs[-1].text, False)
+
+
+    @staticmethod
+    def _handle_text(text: str, last=False) -> str:
+        text = NumListText._handle_list(text, last)
+        return text
+    @staticmethod
+    def _capitalize(text):
+        return text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
+    @staticmethod
+    def _handle_list(text: str, last) -> str:
         if text[-1] == "]":
             return text
         if text[-1] in punctuation:
             text = text[:-1] + "."
         else:
             text = text + "."
+        return text
 
 class PictureText(ParagraphText):
     @staticmethod
-    def handle_text(text: str) -> str:
-        text = super().handle_text(text)
+    def handle_text(p: Paragraph):
+        ParagraphText.handle_text(p)
+        for run in p.runs:
+            if len(run.text) > 1:
+                run.text = PictureText._handle_text(run.text)
+    @staticmethod
+    def _handle_text(text: str) -> str:
+        text = PictureText._handle_picture(text)
         return text
 
     @staticmethod
-    def handle_picture(text: str) -> str:
+    def _handle_picture(text: str) -> str:
         text = text.replace("рисунок", "Рисунок")
         if "-" in text and "—" not in text:
             text = text.replace("-",  "—", 1)
+        return text
+
+
+
+class Control:
+    _bullet_list_buffer: Paragraph = None
+    @staticmethod
+    def handle_paragraph(p: Paragraph, style_obj: Styles):
+        style_dict = {
+            "main": ParagraphText,
+            "header1": ParagraphText,
+            "header2": ParagraphText,
+            "source_header": ParagraphText,
+            "picture": PictureText,
+            "1list bullet": BulletListText,
+            "1list num": NumListText
+        }
+        style = Decider.get_style(p, style_obj)
+        if style == 0:
+            return
+        p.style = style
+        Control.normalize(p)
+        if style.name.startswith("1list num"):
+            style_name = "1list num"
+        else:
+            style_name = style.name
+        if style.name == "1list bullet":
+            Control._bullet_list_buffer = p
+            style_dict[style.name].handle_text(p)
+        else:
+            if Control._bullet_list_buffer:
+                style_dict["1list bullet"].handle_text(Control._bullet_list_buffer, True)
+                Control._bullet_list_buffer = None
+            style_dict[style_name].handle_text(p)
+
+    @staticmethod
+    def normalize(p: Paragraph):
+        if not p.runs:
+            return
+        p.style.font.color.rgb = RGBColor(0, 0, 0)
+        pf = p.paragraph_format
+        spf = p.style.paragraph_format
+
+        if pf.space_before != spf.space_before:
+            pf.space_before = spf.space_before
+        if pf.space_after != spf.space_after:
+            pf.space_after = spf.space_after
+        if pf.left_indent != spf.left_indent:
+            pf.left_indent = spf.left_indent
+        if pf.alignment != spf.alignment:
+            pf.alignment = spf.alignment
+        if pf.first_line_indent != spf.first_line_indent:
+            if not p.text.lower().startswith("где"):
+                pf.first_line_indent = spf.first_line_indent
+        if pf.line_spacing_rule != spf.line_spacing_rule:
+            pf.line_spacing_rule = spf.line_spacing_rule
+
+        if p.text.lower().startswith("где") and "—" in p.text and len(p.text) < 100:
+            pf.first_line_indent = Mm(0)
+
+
+    @staticmethod
+    def get_difference(old_p: Paragraph, new_p: Paragraph):
+        if Control.is_style_different(old_p, new_p):
+            for r in old_p.runs:
+                r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+        for old_r, new_r in zip(old_p.runs, new_p.runs):
+            if old_r.text != new_r.text and old_r.text[:-1] != new_r.text:
+                old_r.font.color.rgb = RGBColor(255, 0, 0)
+                old_r.text = "{" + f"old:[{old_r.text}] new:[{new_r.text}]" + "}"
+
+    @staticmethod
+    def is_style_different(old_p: Paragraph, new_p: Paragraph) -> bool:
+        if not old_p.runs:
+            return False
+        x = old_p.paragraph_format
+        old_p_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
+        x = new_p.style.paragraph_format
+        new_p_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
+        x = old_p.paragraph_format
+        old_p_style_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
+        for old, new, old_style in zip(old_p_params, new_p_params, old_p_style_params):
+            if old:
+                if old != new:
+                    return True
+            elif old_style:
+                if old_style != new:
+                    return True
+
+        if old_p.style.font.color.rgb != RGBColor(0,0,0) and old_p.style.font.color.rgb:
+            return True
+
+        return False
