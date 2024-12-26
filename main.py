@@ -1,29 +1,27 @@
-import docx
 from docx import Document
-from styles import Styles
+from styles import Styles, Decider
+from text import Control
 
+old_document = Document("input/work_c.docx")
+changes = Document("input/work_c.docx")
 
-old_document = Document("c.docx")
-new_document = Document("empty.docx")
-new_document.save('new_c.docx')
-new_document = Document("new_c.docx")
+styles = Styles(old_document)
+
+custom_style_names = True
+if custom_style_names:
+   Decider.custom_names(styles)
 
 docx_iter = old_document.iter_inner_content()
-for i in range(5):
+changes_iter = changes.iter_inner_content()
 
-    print(next(docx_iter).style.type)
-    print(next(docx_iter).text, end="\n\n\n\n\n")
-
-
-
+for p in docx_iter:
+   Control.handle_paragraph(p, styles)
+   Control.get_difference(next(changes_iter), p)
 
 
 
 
 
-
-
-
-
-
-new_document.save('output/new_c.docx')
+old_document.save("output/work_c.docx")
+changes.save("output/diffs.docx")
+print("!")
