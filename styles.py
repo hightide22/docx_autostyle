@@ -1,7 +1,7 @@
 from docx.document import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
-from docx.shared import Pt, Mm
+from docx.shared import Pt, Mm, RGBColor
 from docx.styles.style import ParagraphStyle
 from docx.text.paragraph import Paragraph
 
@@ -19,6 +19,7 @@ def create_main(d: Document) -> ParagraphStyle:
     style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
     style.font.name = "Times New Roman"
     style.font.size = Pt(14)
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -39,6 +40,7 @@ def create_header1(d: Document) -> ParagraphStyle:
     style.font.size = Pt(18)
     style.font.bold = True
     style.font.all_caps = True
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -59,6 +61,7 @@ def create_header2(d: Document) -> ParagraphStyle:
     style.font.name = "Times New Roman"
     style.font.size = Pt(16)
     style.font.bold = True
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -76,6 +79,7 @@ def create_bullet_list(d: Document) -> ParagraphStyle:
     style.font.name = "Times New Roman"
     style.font.size = Pt(14)
     style.font.bold = False
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -94,6 +98,7 @@ def create_picture(d: Document) -> ParagraphStyle:
     style.font.name = "Times New Roman"
     style.font.size = Pt(12)
     style.font.bold = True
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -114,6 +119,7 @@ def create_source_header(d: Document) -> ParagraphStyle:
     style.font.size = Pt(14)
     style.font.bold = False
     style.font.all_caps = True
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -132,6 +138,7 @@ def create_numlist(d: Document):
     style.font.name = "Times New Roman"
     style.font.size = Pt(14)
     style.font.bold = False
+    style.font.color.rgb = RGBColor(0, 0, 0)
     return style
 
 
@@ -152,6 +159,7 @@ class Styles:
         style.font.name = "Times New Roman"
         style.font.size = Pt(14)
         style.font.bold = False
+        style.font.color.rgb = RGBColor(0, 0, 0)
         return style
 
     def _create_id_map(self, doc: Document) -> dict[int, str]:

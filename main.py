@@ -1,11 +1,18 @@
 from docx import Document
 from styles import Styles, Decider
 from text import Control
+from prerun import prerun
+import argparse
 
 
 def main():
-    old_document = Document("input/work_c.docx")
-    changes = Document("input/work_c.docx")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file")
+    args = parser.parse_args()
+
+    old_document = Document("input/" + args.file)
+    prerun(old_document)
+    changes = Document("input/" + args.file)
 
     styles = Styles(old_document)
 
