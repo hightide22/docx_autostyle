@@ -135,23 +135,23 @@ def create_numlist(d: Document):
 
 
 class Styles:
-    # def get_numlist_style(self, p: Paragraph, id):
-    #     # if f"list num {p.style.name}" in [x.name for x in self.nf.styles]:
-    #     #     style = self.nf.styles[f"list num {p.style.name}"]
-    #     # else:
-    #     #     style = self.nf.styles.add_style(f"list num {p.style.name}", WD_STYLE_TYPE.PARAGRAPH)
-    #     # style.quick_style = True
-    #     # style.base_style = p.styl
-    #     p.style.name = "1list num"
-    #     p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-    #     p.paragraph_format.first_line_indent = Mm(-10)
-    #     p.paragraph_format.left_indent = Mm(22.5)
-    #     p.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
-    #
-    #     p.style.font.name = "Times New Roman"
-    #     p.style.font.size = Pt(14)
-    #     p.style.font.bold = False
-    #     return p.style
+    def _create_numlist_style(self, style_name: str):
+        if f"1list num {style_name}" in [x.name for x in self.nf.styles]:
+            style = self.nf.styles[f"1list num {style_name}"]
+        else:
+            style = self.nf.styles.add_style(f"1list num {style_name}", WD_STYLE_TYPE.PARAGRAPH)
+        style.quick_style = True
+        style.base_style = self.nf.styles[style_name]
+        style.name = f"1list num {style_name}"
+        style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        style.paragraph_format.first_line_indent = Mm(-10)
+        style.paragraph_format.left_indent = Mm(22.5)
+        style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
+
+        style.font.name = "Times New Roman"
+        style.font.size = Pt(14)
+        style.font.bold = False
+        return style
 
     def _create_id_map(self, doc: Document) -> dict[int, str]:
         numbering = doc.part.numbering_part
@@ -200,27 +200,26 @@ class Decider:
     def get_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if Decider._custom_style_names:
             return Decider._get_custom_name_style(p, style)
-
-        if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
-            if Decider._list_type(p):
-                return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
-
-
-            if "рисунок" in p.text.lower() and "(рисунок " not in p.text.lower():
-                return style.pictures
-
-            if p.style.base_style:
-                if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
-                    return style.header1
-                elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
-                    return style.header2
-
-            if "часть" in p.text.lower() and len(p.text.split()) <= 3:
-                return style.source_header
-
-            return style.main
-        else:
-            return 0
+        # if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
+        #     if Decider._list_type(p):
+        #         return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
+        #
+        #
+        #     if "рисунок" in p.text.lower() and "(рисунок " not in p.text.lower():
+        #         return style.pictures
+        #
+        #     if p.style.base_style:
+        #         if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
+        #             return style.header1
+        #         elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
+        #             return style.header2
+        #
+        #     if "часть" in p.text.lower() and len(p.text.split()) <= 3:
+        #         return style.source_header
+        #
+        #     return style.main
+        # else:
+        #     return 0
 
     @staticmethod
     def custom_names(s: Styles):
@@ -236,28 +235,35 @@ class Decider:
                 "list bullet": s.list_bullet,
                 "list num": "list num"
             }
+            list_num = []
             for l in stxt:
                 if len(l.split(": ")) > 1:
                     key, value = l.split(": ")
+                    if key.startswith("list num"):
+                        list_num = value.split(", ")
+                        continue
                     for v in value.split(", "):
                         Decider._csn_dict[v] = style_dict[key]
+            for name in list_num:
+                s._create_numlist_style(name)
     @staticmethod
     def _get_custom_name_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
             if Decider._list_type(p):
                 return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
+
+            if f"1list num {p.style.name}" in [x.name for x in style.nf.styles]:
+                return style.nf.styles[f"1list num {p.style.name}"]
+
             if p.style.name in Decider._csn_dict:
                 if Decider._csn_dict[p.style.name] != "list num":
                     return Decider._csn_dict[p.style.name]
-                else:
-                    return style.get_numlist_style(p)
             else:
-                print(f"Style {p.style.name} не указан в файле styles.txt")
                 if "рисунок" in p.text.lower() and "(рисунок " not in p.text.lower():
                     return style.pictures
                 if "часть" in p.text.lower() and len(p.text.split()) <= 3:
                     return style.source_header
-                print(f"Style {p.style.name} пропущен")
+                print(f"Style {p.style.name} не указан в файле styles.txt")
                 return 0
         return 0
     @staticmethod
@@ -268,6 +274,11 @@ class Decider:
             return 0
         a = p_xml.find('.//w:numPr', namespaces=paragraph.part.element.nsmap)
         if a is None:
+            if "маркир" in paragraph.style.name.lower() or "bullet" in paragraph.style.name.lower():
+                return "bullet"
+            if paragraph.style.base_style:
+                if "маркир" in paragraph.style.base_style.name.lower() or "bullet" in paragraph.style.base_style.name.lower():
+                    return "bullet"
             return 0
         b = a.find('.//w:numId', namespaces=paragraph.part.element.nsmap)
         id = int(b.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val'))

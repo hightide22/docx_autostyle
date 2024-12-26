@@ -1,6 +1,7 @@
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.style import WD_STYLE_TYPE
 from docx.document import Document
+from collections import defaultdict
 from styles import Styles, Decider
 from docx.text.paragraph import Paragraph, ParagraphStyle
 from string import punctuation
@@ -167,6 +168,7 @@ class PictureText(ParagraphText):
 
 class Control:
     _bullet_list_buffer: Paragraph = None
+    _style_diffs = defaultdict(list)
     @staticmethod
     def handle_paragraph(p: Paragraph, style_obj: Styles):
         style_dict = {
@@ -183,7 +185,7 @@ class Control:
             return
         p.style = style
         Control.normalize(p)
-        if style.name.startswith("1list num"):
+        if style.name not in style_dict.keys():
             style_name = "1list num"
         else:
             style_name = style.name
@@ -224,6 +226,8 @@ class Control:
 
     @staticmethod
     def get_difference(old_p: Paragraph, new_p: Paragraph):
+        if old_p.style.type != WD_STYLE_TYPE.PARAGRAPH:
+            return
         if Control.is_style_different(old_p, new_p):
             for r in old_p.runs:
                 r.font.highlight_color = WD_COLOR_INDEX.YELLOW
@@ -234,23 +238,40 @@ class Control:
 
     @staticmethod
     def is_style_different(old_p: Paragraph, new_p: Paragraph) -> bool:
+        if old_p.style.name == new_p.style.name:
+            return False
         if not old_p.runs:
             return False
         x = old_p.paragraph_format
-        old_p_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
+        old_p_params = {"left_indent": x.left_indent, "first_line_indent": x.first_line_indent, "line_spacing_rule": x.line_spacing_rule, "space_before": x.space_before, "space_after": x.space_after, "alignment": x.alignment}
         x = new_p.style.paragraph_format
-        new_p_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
-        x = old_p.paragraph_format
-        old_p_style_params = [x.left_indent, x.first_line_indent, x.line_spacing_rule, x.space_before, x.space_after, x.alignment]
-        for old, new, old_style in zip(old_p_params, new_p_params, old_p_style_params):
-            if old:
-                if old != new:
-                    return True
-            elif old_style:
-                if old_style != new:
-                    return True
+        new_p_params = {"left_indent": x.left_indent, "first_line_indent": x.first_line_indent, "line_spacing_rule": x.line_spacing_rule, "space_before": x.space_before, "space_after": x.space_after, "alignment": x.alignment}
+        x = old_p.style.paragraph_format
+        old_p_style_params = {"left_indent": x.left_indent, "first_line_indent": x.first_line_indent, "line_spacing_rule": x.line_spacing_rule, "space_before": x.space_before, "space_after": x.space_after, "alignment": x.alignment}
 
+        for key in old_p_style_params:
+            old = old_p_params[key]
+            new = new_p_params[key]
+            old_style = old_p_style_params[key]
+            if old is not None or old_style is not None:
+                if old:
+                    if old != new:
+                        Control._style_diffs[old_p.text[:10]].append((key, "old"))
+                        # if new_p.style.name.lower() == "main":
+                        #     print((key, "old"), old, new, old_style, new_p.text[:10])
+                        return True
+                if old_style:
+                    if old_style != new:
+                        Control._style_diffs[old_p.text[:10]].append((key, "old_style"))
+                        # if new_p.style.name.lower() == "main":
+                        #     print((key, "old_style"), old, new, old_style, new_p.text[:10])
+                        return True
+            else:
+                if old != new and (old or new):
+                    # if new_p.style.name.lower() == "main":
+                    #     print((key, "old_style2"), old, new, old_style, new_p.text[:10])
+                    return True
         if old_p.style.font.color.rgb != RGBColor(0,0,0) and old_p.style.font.color.rgb:
+            Control._style_diffs[old_p.text[:10]].append(("color", 1))
             return True
-
         return False
