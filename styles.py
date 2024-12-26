@@ -253,6 +253,8 @@ class Decider:
     @staticmethod
     def _get_custom_name_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
+            if not p.text:
+                return 0
             if Decider._list_type(p):
                 return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
 
@@ -267,7 +269,7 @@ class Decider:
                     return style.pictures
                 if "часть" in p.text.lower() and len(p.text.split()) <= 3:
                     return style.source_header
-                print(f"Style {p.style.name} не указан в файле styles.txt")
+                print(f"Style {p.style.name} не указан в файле styles.txt", p.text[:10])
                 return 0
         return 0
 
