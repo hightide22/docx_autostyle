@@ -1,4 +1,4 @@
-# auto_word_layout
+# docx_autostyle
 Предобработка:
 
 Задать роль стилей в вашем файле можно в input/config.txt ![](md/Screenshot_1.png)
