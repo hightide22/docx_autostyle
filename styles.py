@@ -1,13 +1,9 @@
 from docx.document import Document
 from docx.enum.style import WD_STYLE_TYPE
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_COLOR
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.shared import Pt, Mm
 from docx.styles.style import ParagraphStyle
 from docx.text.paragraph import Paragraph
-
-import docx
-
-
 
 
 def create_main(d: Document) -> ParagraphStyle:
@@ -24,6 +20,7 @@ def create_main(d: Document) -> ParagraphStyle:
     style.font.name = "Times New Roman"
     style.font.size = Pt(14)
     return style
+
 
 def create_header1(d: Document) -> ParagraphStyle:
     if "header1" in [x.name for x in d.styles]:
@@ -44,6 +41,7 @@ def create_header1(d: Document) -> ParagraphStyle:
     style.font.all_caps = True
     return style
 
+
 def create_header2(d: Document) -> ParagraphStyle:
     if "header2" in [x.name for x in d.styles]:
         style = d.styles["header2"]
@@ -62,6 +60,7 @@ def create_header2(d: Document) -> ParagraphStyle:
     style.font.size = Pt(16)
     style.font.bold = True
     return style
+
 
 def create_bullet_list(d: Document) -> ParagraphStyle:
     if "1list bullet" in [x.name for x in d.styles]:
@@ -97,6 +96,7 @@ def create_picture(d: Document) -> ParagraphStyle:
     style.font.bold = True
     return style
 
+
 def create_source_header(d: Document) -> ParagraphStyle:
     if "source_header" in [x.name for x in d.styles]:
         style = d.styles["source_header"]
@@ -116,11 +116,12 @@ def create_source_header(d: Document) -> ParagraphStyle:
     style.font.all_caps = True
     return style
 
+
 def create_numlist(d: Document):
-    if f"1list num" in [x.name for x in d.styles]:
-        style = d.styles[f"1list num"]
+    if "1list num" in [x.name for x in d.styles]:
+        style = d.styles["1list num"]
     else:
-        style = d.styles.add_style(f"1list num", WD_STYLE_TYPE.PARAGRAPH)
+        style = d.styles.add_style("1list num", WD_STYLE_TYPE.PARAGRAPH)
     style.quick_style = True
     style.base_style = d.styles["main"]
     style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -173,7 +174,6 @@ class Styles:
                             num.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId'))
                         list_type_dict[abstractNumId_numId[abstractNumId]] = fmt.get(
                             '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val')
-            # print(abstractNumId_numId)
             return list_type_dict
 
     def __init__(self, nf: Document):
@@ -192,10 +192,12 @@ class Styles:
 
         self.list_bullet = create_bullet_list(nf)
 
+
 class Decider:
     _custom_style_names = False
     _csn_dict = {}
     _list_ids = {}
+
     @staticmethod
     def get_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if Decider._custom_style_names:
@@ -236,16 +238,18 @@ class Decider:
                 "list num": "list num"
             }
             list_num = []
-            for l in stxt:
-                if len(l.split(": ")) > 1:
-                    key, value = l.split(": ")
+            for li in stxt:
+                if len(li.split(": ")) > 1:
+                    key, value = li.split(": ")
                     if key.startswith("list num"):
                         list_num = value.split(", ")
                         continue
                     for v in value.split(", "):
                         Decider._csn_dict[v] = style_dict[key]
             for name in list_num:
-                s._create_numlist_style(name)
+                if name:
+                    s._create_numlist_style(name)
+
     @staticmethod
     def _get_custom_name_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
@@ -266,6 +270,7 @@ class Decider:
                 print(f"Style {p.style.name} не указан в файле styles.txt")
                 return 0
         return 0
+
     @staticmethod
     def _list_type(paragraph):
         _el = paragraph._element

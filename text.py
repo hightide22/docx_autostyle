@@ -1,20 +1,19 @@
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
 from docx.enum.style import WD_STYLE_TYPE
-from docx.document import Document
 from collections import defaultdict
 from styles import Styles, Decider
-from docx.text.paragraph import Paragraph, ParagraphStyle
+from docx.text.paragraph import Paragraph
 from string import punctuation
 from docx.shared import Mm, RGBColor
 import regex
 
 
-
-
-
 class ParagraphText:
     @staticmethod
     def handle_text(p: Paragraph):
+        """
+        p.text = ... Удалит все формулы из параграфа
+        """
         for run in p.runs:
             if len(run.text) > 1:
                 run.text = ParagraphText._handle_text(run.text)
@@ -44,9 +43,8 @@ class ParagraphText:
         text = text.replace("“", '"').replace("”", '"')
 
         text = text.replace(" - ", ' — ')
-        # «–» минус
 
-        text = text.replace(u"\u00A0", " ") # non-breaking spaces
+        text = text.replace(u"\u00A0", " ")  # non-breaking spaces
         return text
 
     @staticmethod
@@ -69,16 +67,16 @@ class ParagraphText:
                         break
         return text
 
-
     @staticmethod
     def _replace_bad_spaces(text: str) -> str:
-        text = text.replace("  ", " ") # 2 spaces
-        text = text.replace(".[", ". [") #
+        text = text.replace("  ", " ")
+        text = text.replace(".[", ". [")
         text = text.replace("( ", "(").replace(" )", ")")
 
         text = text.replace(" .", ".").replace(" ,", ",").replace(" :", ":")
         text = text.replace('« ', '«').replace(' »', "»")
         return text
+
 
 class BulletListText(ParagraphText):
     @staticmethod
@@ -99,6 +97,7 @@ class BulletListText(ParagraphText):
     def _capitalize(text: str) -> str:
         text = text[0].lower() + text[1:]  # Текст в маркированном списке начинается с маленькой (строчной) буквы
         return text
+
     @staticmethod
     def _handle_list(text: str, last: bool) -> str:
         if not text:
@@ -117,6 +116,7 @@ class BulletListText(ParagraphText):
                 text = text + ";"
         return text
 
+
 class NumListText(BulletListText):
     @staticmethod
     def handle_text(p: Paragraph, last=False):
@@ -127,14 +127,15 @@ class NumListText(BulletListText):
             if p.runs[-1].text:
                 p.runs[-1].text = NumListText._handle_list(p.runs[-1].text, False)
 
-
     @staticmethod
     def _handle_text(text: str, last=False) -> str:
         text = NumListText._handle_list(text, last)
         return text
+
     @staticmethod
     def _capitalize(text):
         return text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
+
     @staticmethod
     def _handle_list(text: str, last) -> str:
         if text[-1] == "]":
@@ -145,6 +146,7 @@ class NumListText(BulletListText):
             text = text + "."
         return text
 
+
 class PictureText(ParagraphText):
     @staticmethod
     def handle_text(p: Paragraph):
@@ -152,6 +154,7 @@ class PictureText(ParagraphText):
         for run in p.runs:
             if len(run.text) > 1:
                 run.text = PictureText._handle_text(run.text)
+
     @staticmethod
     def _handle_text(text: str) -> str:
         text = PictureText._handle_picture(text)
@@ -165,10 +168,10 @@ class PictureText(ParagraphText):
         return text
 
 
-
 class Control:
     _bullet_list_buffer: Paragraph = None
     _style_diffs = defaultdict(list)
+
     @staticmethod
     def handle_paragraph(p: Paragraph, style_obj: Styles):
         style_dict = {
@@ -223,7 +226,6 @@ class Control:
         if p.text.lower().startswith("где") and "—" in p.text and len(p.text) < 100:
             pf.first_line_indent = Mm(0)
 
-
     @staticmethod
     def get_difference(old_p: Paragraph, new_p: Paragraph):
         if old_p.style.type != WD_STYLE_TYPE.PARAGRAPH:
@@ -271,7 +273,7 @@ class Control:
                     # if new_p.style.name.lower() == "main":
                     #     print((key, "old_style2"), old, new, old_style, new_p.text[:10])
                     return True
-        if old_p.style.font.color.rgb != RGBColor(0,0,0) and old_p.style.font.color.rgb:
+        if old_p.style.font.color.rgb != RGBColor(0, 0, 0) and old_p.style.font.color.rgb:
             Control._style_diffs[old_p.text[:10]].append(("color", 1))
             return True
         return False
