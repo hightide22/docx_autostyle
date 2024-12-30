@@ -184,6 +184,11 @@ class Control:
             "1list num": NumListText
         }
         style = Decider.get_style(p, style_obj)
+        if Decider._is_eq(p) and len(p.text) < 8:
+            if not p.runs:
+                p.add_run(" ")
+            p.style = style_obj.eq
+            return
         if style == 0:
             return
         p.style = style

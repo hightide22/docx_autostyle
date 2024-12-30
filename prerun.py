@@ -7,7 +7,7 @@ def add_styles(target_document: docx.document.Document, styles_document: docx.do
     s = styles_document.part._styles_part.element
     for style in s.findall('.//w:style', namespaces=styles_document.part.element.nsmap):
         el = style.find(".//w:name", namespaces=styles_document.part.element.nsmap)
-        if el.val in ("main", "1list bullet", "1list num", "header1", "header2", "picture", "source_header"):
+        if el.val in ("main", "1list bullet", "1list num", "header1", "header2", "picture", "source_header", "eq"):
             target_document.part._styles_part.element.append(style)
 
 
