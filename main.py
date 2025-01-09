@@ -16,9 +16,7 @@ def main():
 
     styles = Styles(old_document)
 
-    custom_style_names = True
-    if custom_style_names:
-        Decider.custom_names(styles)
+    Decider.custom_names(styles)
 
     docx_iter = old_document.iter_inner_content()
     changes_iter = changes.iter_inner_content()

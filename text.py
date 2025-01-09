@@ -1,9 +1,9 @@
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
+from docx.enum.text import WD_COLOR_INDEX
 from docx.enum.style import WD_STYLE_TYPE
 from collections import defaultdict
 from styles import Styles, Decider
 from docx.text.paragraph import Paragraph
-from string import punctuation
+import string
 from docx.shared import Mm, RGBColor
 import regex
 
@@ -19,16 +19,17 @@ class ParagraphText:
                 run.text = ParagraphText._handle_text(run.text)
         while p.runs and p.runs[-1].text.endswith(" "):
             p.runs[-1].text = p.runs[-1].text[:-1]
-        ParagraphText._handle_eq(p)
+        ParagraphText._handle_quotes(p)
+        # ParagraphText._handle_eq(p)
 
-    @staticmethod
-    def _handle_eq(p: Paragraph):
-        if "[eq]" in p.text or u"\u200b" in p.text:
-            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for r in p.runs:
-                if r.text in ("[", "eq", "]", "[eq]"):
-                    r.text = u"\u200b"
-                r.text = r.text.replace("[eq]", u"\u200b")
+    # @staticmethod
+    # def _handle_eq(p: Paragraph):
+    #     if "[eq]" in p.text or u"\u200b" in p.text:
+    #         p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    #         for r in p.runs:
+    #             if r.text in ("[", "eq", "]", "[eq]"):
+    #                 r.text = u"\u200b"
+    #             r.text = r.text.replace("[eq]", u"\u200b")
 
     @staticmethod
     def _handle_text(text: str) -> str:
@@ -48,24 +49,36 @@ class ParagraphText:
         return text
 
     @staticmethod
-    def _handle_quotes(text: str) -> str:
-        if "«" in text and "»" in text:
+    def _handle_quotes(p: Paragraph):
+        eng_quotes = []
+        ru_quotes = []
+        if p.hyperlinks or (p.style and p.style.name == "code"):
+            return -1
+        if '«' in p.text and '»' in p.text and len(p.text) == sum(len(x.text) for x in p.runs):
             mask = r'«.*?»'
-            quotes = regex.findall(mask, text)
-            for q in quotes:
-                for ch in q[1:-1]:
-                    if ord(ch) < 700:
-                        text = text.replace(q, q.replace("«", '"').replace("»", '"'))
-                        break
-        if '"' in text:
+            for q in regex.findall(mask, p.text):
+                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
+                if striped_q and striped_q[0] in string.ascii_letters:
+                    eng_quotes.append(q)
+        if p.text.count('"') % 2 == 0 and p.text.count('"'):
             mask = r'".*?"'
-            quotes = regex.findall(mask, text)
-            for q in quotes:
-                for ch in q[1:-1]:
-                    if ord(ch) > 700:
-                        text = text.replace(q, f"«{q[1:-1]}»")
-                        break
-        return text
+            for q in regex.findall(mask, p.text):
+                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
+                if striped_q and striped_q[0] not in string.ascii_letters:
+                    ru_quotes.append(q)
+        if eng_quotes or ru_quotes:
+            new_text = p.text
+            for q in eng_quotes:
+                new_text = new_text.replace(q, f"\"{q[1:-1]}\"")
+            for q in ru_quotes:
+                new_text = new_text.replace(q, f"«{q[1:-1]}»")
+            n = 0
+            for r in p.runs:
+                if r.text != new_text[n: n + len(r.text)]:
+                    r.text = new_text[n: n + len(r.text)]
+                n += len(r.text)
+            return 1
+        return 0
 
     @staticmethod
     def _replace_bad_spaces(text: str) -> str:
@@ -105,12 +118,12 @@ class BulletListText(ParagraphText):
         if text[-1] == "]":
             return text
         if last:
-            if text[-1] in punctuation:
+            if text[-1] in string.punctuation:
                 text = text[:-1] + "."
             else:
                 text = text + "."
         else:
-            if text[-1] in punctuation:
+            if text[-1] in string.punctuation:
                 text = text[:-1] + ";"
             else:
                 text = text + ";"
@@ -140,7 +153,7 @@ class NumListText(BulletListText):
     def _handle_list(text: str, last) -> str:
         if text[-1] == "]":
             return text
-        if text[-1] in punctuation:
+        if text[-1] in string.punctuation:
             text = text[:-1] + "."
         else:
             text = text + "."
@@ -167,6 +180,12 @@ class PictureText(ParagraphText):
             text = text.replace("-",  "—", 1)
         return text
 
+class EqText(ParagraphText):
+    @staticmethod
+    def handle_text(p: Paragraph):
+        ParagraphText.handle_text(p)
+        if not p.runs:
+            p.add_run(",")
 
 class Control:
     _bullet_list_buffer: Paragraph = None
@@ -181,14 +200,10 @@ class Control:
             "source_header": ParagraphText,
             "picture": PictureText,
             "1list bullet": BulletListText,
-            "1list num": NumListText
+            "1list num": NumListText,
+            "eq": EqText
         }
         style = Decider.get_style(p, style_obj)
-        if Decider._is_eq(p) and len(p.text) < 8:
-            if not p.runs:
-                p.add_run(" ")
-            p.style = style_obj.eq
-            return
         if style == 0:
             return
         p.style = style
@@ -238,10 +253,14 @@ class Control:
         if Control.is_style_different(old_p, new_p):
             for r in old_p.runs:
                 r.font.highlight_color = WD_COLOR_INDEX.YELLOW
+
         for old_r, new_r in zip(old_p.runs, new_p.runs):
             if old_r.text != new_r.text and old_r.text[:-1] != new_r.text:
                 old_r.font.color.rgb = RGBColor(255, 0, 0)
                 old_r.text = "{" + f"old:[{old_r.text}] new:[{new_r.text}]" + "}"
+        for n in new_p.runs[len(old_p.runs):]:
+            old_p.add_run(n.text).font.color.rgb = RGBColor(255, 0, 0)
+
 
     @staticmethod
     def is_style_different(old_p: Paragraph, new_p: Paragraph) -> bool:
@@ -267,17 +286,17 @@ class Control:
                         # if new_p.style.name.lower() == "main":
                         #     print((key, "old"), old, new, old_style, new_p.text[:10])
                         return True
-                if old_style:
+                if old_style and old is None:
                     if old_style != new:
                         Control._style_diffs[old_p.text[:10]].append((key, "old_style"))
                         # if new_p.style.name.lower() == "main":
                         #     print((key, "old_style"), old, new, old_style, new_p.text[:10])
                         return True
-            else:
-                if old != new and (old or new):
-                    # if new_p.style.name.lower() == "main":
-                    #     print((key, "old_style2"), old, new, old_style, new_p.text[:10])
-                    return True
+            # else:
+            #     if old != new and (old or new):
+            #         if new_p.style.name.lower() == "main":
+            #             print((key, "old_style2"), old, new, old_style, new_p.text[:10])
+            #         return True
         if old_p.style.font.color.rgb != RGBColor(0, 0, 0) and old_p.style.font.color.rgb:
             Control._style_diffs[old_p.text[:10]].append(("color", 1))
             return True

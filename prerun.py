@@ -12,15 +12,9 @@ def add_styles(target_document: docx.document.Document, styles_document: docx.do
 
 
 def prerun(old_document: docx.document.Document):
-
     styles = Document("input/def_styles.docx")
     add_styles(old_document, styles)
     styles = Styles(old_document)
     custom_style_names = True
     if custom_style_names:
         Decider.custom_names(styles)
-
-
-if __name__ == "__main__":
-    prerun()
-    print("!")

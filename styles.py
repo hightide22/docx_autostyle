@@ -6,24 +6,6 @@ from docx.styles.style import ParagraphStyle
 from docx.text.paragraph import Paragraph
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class Styles:
     def _create_numlist_style(self, style_name: str):
         if f"1list num {style_name}" in [x.name for x in self.nf.styles]:
@@ -237,20 +219,15 @@ class Decider:
         # if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
         #     if Decider._list_type(p):
         #         return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
-        #
-        #
         #     if "рисунок" in p.text.lower() and "(рисунок " not in p.text.lower():
         #         return style.pictures
-        #
         #     if p.style.base_style:
         #         if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
         #             return style.header1
         #         elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
         #             return style.header2
-        #
         #     if "часть" in p.text.lower() and len(p.text.split()) <= 3:
         #         return style.source_header
-        #
         #     return style.main
         # else:
         #     return 0
@@ -285,8 +262,8 @@ class Decider:
     @staticmethod
     def _get_custom_name_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
-            if Decider._is_eq(p):
-                return style.main
+            if Decider._is_eq(p) and len(p.text) < 8:
+                return style.eq
             if not p.text:
                 return 0
             if Decider._list_type(p):
