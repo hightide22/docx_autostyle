@@ -8,184 +8,6 @@ from docx.shared import Mm, RGBColor
 import regex
 
 
-class ParagraphText:
-    @staticmethod
-    def handle_text(p: Paragraph):
-        """
-        p.text = ... Удалит все формулы из параграфа
-        """
-        for run in p.runs:
-            if len(run.text) > 1:
-                run.text = ParagraphText._handle_text(run.text)
-        while p.runs and p.runs[-1].text.endswith(" "):
-            p.runs[-1].text = p.runs[-1].text[:-1]
-        ParagraphText._handle_quotes(p)
-        # ParagraphText._handle_eq(p)
-
-    # @staticmethod
-    # def _handle_eq(p: Paragraph):
-    #     if "[eq]" in p.text or u"\u200b" in p.text:
-    #         p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    #         for r in p.runs:
-    #             if r.text in ("[", "eq", "]", "[eq]"):
-    #                 r.text = u"\u200b"
-    #             r.text = r.text.replace("[eq]", u"\u200b")
-
-    @staticmethod
-    def _handle_text(text: str) -> str:
-        text = ParagraphText._replace_bad_symbols(text)
-        # text = ParagraphText._handle_quotes(text) # Не работает с run
-        text = ParagraphText._replace_bad_spaces(text)
-        return text
-
-    @staticmethod
-    def _replace_bad_symbols(text: str) -> str:
-        # text = text.replace("«", '"').replace("»", '"')
-        text = text.replace("“", '"').replace("”", '"')
-
-        text = text.replace(" - ", ' — ')
-
-        text = text.replace(u"\u00A0", " ")  # non-breaking spaces
-        return text
-
-    @staticmethod
-    def _handle_quotes(p: Paragraph):
-        eng_quotes = []
-        ru_quotes = []
-        if p.hyperlinks or (p.style and p.style.name == "code"):
-            return -1
-        if '«' in p.text and '»' in p.text and len(p.text) == sum(len(x.text) for x in p.runs):
-            mask = r'«.*?»'
-            for q in regex.findall(mask, p.text):
-                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
-                if striped_q and striped_q[0] in string.ascii_letters:
-                    eng_quotes.append(q)
-        if p.text.count('"') % 2 == 0 and p.text.count('"'):
-            mask = r'".*?"'
-            for q in regex.findall(mask, p.text):
-                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
-                if striped_q and striped_q[0] not in string.ascii_letters:
-                    ru_quotes.append(q)
-        if eng_quotes or ru_quotes:
-            new_text = p.text
-            for q in eng_quotes:
-                new_text = new_text.replace(q, f"\"{q[1:-1]}\"")
-            for q in ru_quotes:
-                new_text = new_text.replace(q, f"«{q[1:-1]}»")
-            n = 0
-            for r in p.runs:
-                if r.text != new_text[n: n + len(r.text)]:
-                    r.text = new_text[n: n + len(r.text)]
-                n += len(r.text)
-            return 1
-        return 0
-
-    @staticmethod
-    def _replace_bad_spaces(text: str) -> str:
-        text = text.replace("  ", " ")
-        text = text.replace(".[", ". [")
-        text = text.replace("( ", "(").replace(" )", ")")
-
-        text = text.replace(" .", ".").replace(" ,", ",").replace(" :", ":")
-        text = text.replace('« ', '«').replace(' »', "»")
-        return text
-
-
-class BulletListText(ParagraphText):
-    @staticmethod
-    def handle_text(p: Paragraph, last=False):
-        ParagraphText.handle_text(p)
-        if p.runs:
-            if p.runs[0].text:
-                p.runs[0].text = BulletListText._capitalize(p.runs[0].text)
-            if p.runs[-1].text:
-                p.runs[-1].text = BulletListText._handle_list(p.runs[-1].text, last)
-
-    @staticmethod
-    def _handle_text(text: str, last=False) -> str:
-        text = BulletListText._handle_list(text, last)
-        return text
-
-    @staticmethod
-    def _capitalize(text: str) -> str:
-        text = text[0].lower() + text[1:]  # Текст в маркированном списке начинается с маленькой (строчной) буквы
-        return text
-
-    @staticmethod
-    def _handle_list(text: str, last: bool) -> str:
-        if not text:
-            return text
-        if text[-1] == "]":
-            return text
-        if last:
-            if text[-1] in string.punctuation:
-                text = text[:-1] + "."
-            else:
-                text = text + "."
-        else:
-            if text[-1] in string.punctuation:
-                text = text[:-1] + ";"
-            else:
-                text = text + ";"
-        return text
-
-
-class NumListText(BulletListText):
-    @staticmethod
-    def handle_text(p: Paragraph, last=False):
-        BulletListText.handle_text(p, last)
-        if p.runs:
-            if p.runs[0].text:
-                p.runs[0].text = NumListText._capitalize(p.runs[0].text)
-            if p.runs[-1].text:
-                p.runs[-1].text = NumListText._handle_list(p.runs[-1].text, False)
-
-    @staticmethod
-    def _handle_text(text: str, last=False) -> str:
-        text = NumListText._handle_list(text, last)
-        return text
-
-    @staticmethod
-    def _capitalize(text):
-        return text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
-
-    @staticmethod
-    def _handle_list(text: str, last) -> str:
-        if text[-1] == "]":
-            return text
-        if text[-1] in string.punctuation:
-            text = text[:-1] + "."
-        else:
-            text = text + "."
-        return text
-
-
-class PictureText(ParagraphText):
-    @staticmethod
-    def handle_text(p: Paragraph):
-        ParagraphText.handle_text(p)
-        for run in p.runs:
-            if len(run.text) > 1:
-                run.text = PictureText._handle_text(run.text)
-
-    @staticmethod
-    def _handle_text(text: str) -> str:
-        text = PictureText._handle_picture(text)
-        return text
-
-    @staticmethod
-    def _handle_picture(text: str) -> str:
-        text = text.replace("рисунок", "Рисунок")
-        if "-" in text and "—" not in text:
-            text = text.replace("-",  "—", 1)
-        return text
-
-class EqText(ParagraphText):
-    @staticmethod
-    def handle_text(p: Paragraph):
-        ParagraphText.handle_text(p)
-        if not p.runs:
-            p.add_run(",")
 
 class Control:
     _bullet_list_buffer: Paragraph = None
@@ -301,3 +123,171 @@ class Control:
             Control._style_diffs[old_p.text[:10]].append(("color", 1))
             return True
         return False
+
+
+class ParagraphText:
+    @staticmethod
+    def handle_text(p: Paragraph):
+        """
+        p.text = ... Удалит все формулы из параграфа
+        """
+        for run in p.runs:
+            if len(run.text) > 1:
+                run.text = ParagraphText._handle_text(run.text)
+        while p.runs and p.runs[-1].text.endswith(" "):
+            p.runs[-1].text = p.runs[-1].text[:-1]
+        ParagraphText._handle_quotes(p)
+
+
+    @staticmethod
+    def _handle_text(text: str) -> str:
+        text = ParagraphText._replace_bad_symbols(text)
+        # text = ParagraphText._handle_quotes(text) # Не работает с run
+        text = ParagraphText._replace_bad_spaces(text)
+        return text
+
+    @staticmethod
+    def _replace_bad_symbols(text: str) -> str:
+        # text = text.replace("«", '"').replace("»", '"')
+        text = text.replace("“", '"').replace("”", '"')
+
+        text = text.replace(" - ", ' — ')
+
+        text = text.replace(u"\u00A0", " ")  # non-breaking spaces
+        return text
+
+    @staticmethod
+    def _handle_quotes(p: Paragraph):
+        eng_quotes = []
+        ru_quotes = []
+        if p.hyperlinks or (p.style and p.style.name == "code"):
+            return -1
+        if '«' in p.text and '»' in p.text and len(p.text) == sum(len(x.text) for x in p.runs):
+            mask = r'«.*?»'
+            for q in regex.findall(mask, p.text):
+                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
+                if striped_q and striped_q[0] in string.ascii_letters:
+                    eng_quotes.append(q)
+        if p.text.count('"') % 2 == 0 and p.text.count('"'):
+            mask = r'".*?"'
+            for q in regex.findall(mask, p.text):
+                striped_q = [x for x in q if x not in string.digits + string.punctuation + '«»']
+                if striped_q and striped_q[0] not in string.ascii_letters:
+                    ru_quotes.append(q)
+        if eng_quotes or ru_quotes:
+            new_text = p.text
+            for q in eng_quotes:
+                new_text = new_text.replace(q, f"\"{q[1:-1]}\"")
+            for q in ru_quotes:
+                new_text = new_text.replace(q, f"«{q[1:-1]}»")
+            n = 0
+            for r in p.runs:
+                if r.text != new_text[n: n + len(r.text)]:
+                    r.text = new_text[n: n + len(r.text)]
+                n += len(r.text)
+            return 1
+        return 0
+
+    @staticmethod
+    def _replace_bad_spaces(text: str) -> str:
+        text = text.replace("  ", " ")
+        text = text.replace(".[", ". [")
+        text = text.replace("( ", "(").replace(" )", ")")
+
+        text = text.replace(" .", ".").replace(" ,", ",").replace(" :", ":")
+        text = text.replace('« ', '«').replace(' »', "»")
+        return text
+
+class BulletListText(ParagraphText):
+    @staticmethod
+    def handle_text(p: Paragraph, last=False):
+        ParagraphText.handle_text(p)
+        if p.runs:
+            if p.runs[0].text:
+                p.runs[0].text = BulletListText._capitalize(p.runs[0].text)
+            if p.runs[-1].text:
+                p.runs[-1].text = BulletListText._handle_list(p.runs[-1].text, last)
+
+    @staticmethod
+    def _handle_text(text: str, last=False) -> str:
+        text = BulletListText._handle_list(text, last)
+        return text
+
+    @staticmethod
+    def _capitalize(text: str) -> str:
+        text = text[0].lower() + text[1:]  # Текст в маркированном списке начинается с маленькой (строчной) буквы
+        return text
+
+    @staticmethod
+    def _handle_list(text: str, last: bool) -> str:
+        if not text:
+            return text
+        if text[-1] == "]":
+            return text
+        if last:
+            if text[-1] in string.punctuation:
+                text = text[:-1] + "."
+            else:
+                text = text + "."
+        else:
+            if text[-1] in string.punctuation:
+                text = text[:-1] + ";"
+            else:
+                text = text + ";"
+        return text
+
+class NumListText(BulletListText):
+    @staticmethod
+    def handle_text(p: Paragraph, last=False):
+        BulletListText.handle_text(p, last)
+        if p.runs:
+            if p.runs[0].text:
+                p.runs[0].text = NumListText._capitalize(p.runs[0].text)
+            if p.runs[-1].text:
+                p.runs[-1].text = NumListText._handle_list(p.runs[-1].text, False)
+
+    @staticmethod
+    def _handle_text(text: str, last=False) -> str:
+        text = NumListText._handle_list(text, last)
+        return text
+
+    @staticmethod
+    def _capitalize(text):
+        return text[0].upper() + text[1:]  # Текст в нумерованном списке должен начинаться с прописной буквы
+
+    @staticmethod
+    def _handle_list(text: str, last) -> str:
+        if text[-1] == "]":
+            return text
+        if text[-1] in string.punctuation:
+            text = text[:-1] + "."
+        else:
+            text = text + "."
+        return text
+
+class PictureText(ParagraphText):
+    @staticmethod
+    def handle_text(p: Paragraph):
+        ParagraphText.handle_text(p)
+        for run in p.runs:
+            if len(run.text) > 1:
+                run.text = PictureText._handle_text(run.text)
+
+    @staticmethod
+    def _handle_text(text: str) -> str:
+        text = PictureText._handle_picture(text)
+        return text
+
+    @staticmethod
+    def _handle_picture(text: str) -> str:
+        text = text.replace("рисунок", "Рисунок")
+        if "-" in text and "—" not in text:
+            text = text.replace("-",  "—", 1)
+        return text
+
+class EqText(ParagraphText):
+    @staticmethod
+    def handle_text(p: Paragraph):
+        ParagraphText.handle_text(p)
+        if not p.runs:
+            p.add_run(",")

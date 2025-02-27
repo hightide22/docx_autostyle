@@ -1,3 +1,5 @@
+import warnings
+
 from docx.document import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
@@ -70,6 +72,7 @@ class Styles:
         if "source_header" in [x.name for x in self.nf.styles]:
             style = self.nf.styles["source_header"]
         else:
+            warnings.warn(f"Стиль source_header не найден")
             style = self.nf.styles.add_style("source_header", WD_STYLE_TYPE.PARAGRAPH)
         style.quick_style = True
         style.base_style = self.nf.styles['Normal']
@@ -90,6 +93,8 @@ class Styles:
         if "picture" in [x.name for x in self.nf.styles]:
             style = self.nf.styles["picture"]
         else:
+            warnings.warn(f"Стиль picture не найден")
+
             style = self.nf.styles.add_style("picture", WD_STYLE_TYPE.PARAGRAPH)
         style.quick_style = True
         style.base_style = self.nf.styles['Normal']
@@ -125,6 +130,7 @@ class Styles:
         if "header1" in [x.name for x in self.nf.styles]:
             style = self.nf.styles["header1"]
         else:
+            warnings.warn(f"Стиль header1 не найден")
             style = self.nf.styles.add_style("header1", WD_STYLE_TYPE.PARAGRAPH)
         style.quick_style = True
         style.base_style = self.nf.styles['Heading 1']
@@ -145,6 +151,7 @@ class Styles:
         if "header2" in [x.name for x in self.nf.styles]:
             style = self.nf.styles["header2"]
         else:
+            warnings.warn(f"Стиль header2 не найден")
             style = self.nf.styles.add_style("header2", WD_STYLE_TYPE.PARAGRAPH)
         style.quick_style = True
         style.base_style = self.nf.styles['Heading 2']
@@ -165,6 +172,7 @@ class Styles:
         if "main" in [x.name for x in self.nf.styles]:
             style = self.nf.styles["main"]
         else:
+            warnings.warn(f"Стиль main не найден")
             style = self.nf.styles.add_style("main", WD_STYLE_TYPE.PARAGRAPH)
         style.quick_style = True
         style.base_style = self.nf.styles['Normal']
@@ -208,6 +216,9 @@ class Styles:
 
 
 class Decider:
+    """
+    Класс определения стиля
+    """
     _custom_style_names = False
     _csn_dict = {}
     _list_ids = {}
@@ -216,21 +227,6 @@ class Decider:
     def get_style(p: Paragraph, style: Styles) -> ParagraphStyle | int:
         if Decider._custom_style_names:
             return Decider._get_custom_name_style(p, style)
-        # if p.style.type == WD_STYLE_TYPE.PARAGRAPH:
-        #     if Decider._list_type(p):
-        #         return style.list_bullet if Decider._list_type(p) == "bullet" else style.lists_nums
-        #     if "рисунок" in p.text.lower() and "(рисунок " not in p.text.lower():
-        #         return style.pictures
-        #     if p.style.base_style:
-        #         if p.style.base_style.name == "Heading 1" or p.style.name == "Heading 1":
-        #             return style.header1
-        #         elif p.style.base_style.name == "Heading 2" or p.style.name == "Heading 2":
-        #             return style.header2
-        #     if "часть" in p.text.lower() and len(p.text.split()) <= 3:
-        #         return style.source_header
-        #     return style.main
-        # else:
-        #     return 0
 
     @staticmethod
     def custom_names(s: Styles):
